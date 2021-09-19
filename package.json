@@ -1,5 +1,5 @@
 {
-  "name": "qr2fa",
+  "name": "qr2fa-backend",
   "version": "1.0.0",
   "description": "Authenticate with 2FA using QR codes only!",
   "main": "main.js",
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tinopai/qr2fa.git"
+    "url": "git+https://github.com/qr2fa/backend.git"
   },
   "keywords": [
     "qr",
