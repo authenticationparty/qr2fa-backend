@@ -5,4 +5,4 @@ build/*
 
 # Ignore database so I can set my credentials there without publishing to GitHub 🙄
 # Its probably not getting modified anyway so it doesn't matter really
-./utility/database.ts
+utility/database.ts
