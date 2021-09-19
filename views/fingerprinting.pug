@@ -1,0 +1,44 @@
+doctype html 
+html
+    head 
+        title Registration - QR2FA
+    body
+        style.
+            @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+            * {
+                font-family: 'Roboto', sans-serif;
+            }
+        div(style="height:98vh;display:flex;justify-content:center;align-items:center;text-align:center;")
+            div
+                h1(style="font-size:6rem;" id="top-text") Registering #{query.u}
+                p(style="font-size:3rem;" id="bot-text") Please wait...
+        
+        //- Import here to bypass AdBlockers
+        script.
+            !{FingerprintJS}
+
+        script.
+            const fpp = qr2fafp.load()
+            const
+                TT = document.getElementById('top-text'),
+                BT = document.getElementById('bot-text');
+
+            (async()=>{
+                const f0=await fpp
+                    .then(fp => fp.get())
+                console.log(f0);
+
+                const data = await fetch(location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        f0,
+                    })
+                }).then(_=>_.json()).catch(_=>_.json());
+                console.log(data);
+
+                TT.innerHTML = data.success ? 'Success' : 'Error';
+                BT.innerHTML = data.message;
+            })();
