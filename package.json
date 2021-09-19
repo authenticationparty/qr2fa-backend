@@ -6,8 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node build/main.js",
-    "dev": "NODE_ENV=dev npm run build && npm run start",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "npm run build && npm run start"
   },
   "repository": {
     "type": "git",
@@ -23,9 +22,9 @@
   "author": "Tino Pai",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/tinopai/qr2fa/issues"
+    "url": "https://github.com/qr2fa/backend/issues"
   },
-  "homepage": "https://github.com/tinopai/qr2fa#readme",
+  "homepage": "https://github.com/qr2fa/backend#readme",
   "dependencies": {
     "chalk": "^4.1.2",
     "dotenv": "^10.0.0",
