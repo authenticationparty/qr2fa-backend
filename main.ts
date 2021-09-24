@@ -5,10 +5,16 @@ const PORT = process.env.PORT || 8080;
 // Chalk (console colors)
 import chalk from 'chalk';
 // Joi
-import {UserSchema} from './utility/schemas'
+import {RegisterSchema, LogInSchema} from './utility/schemas'
 // Dotenv
 import dotenv from 'dotenv';
 dotenv.config();
+// Argon
+import argon2 from 'argon2';
+// Crypto & createHash
+import {createHash, randomBytes} from 'crypto';
+// Random value to add to hash later on log in
+const RANDOM_BYTES = randomBytes(128);
 
 // WebSockets to reload whenever it registers/logins
 import WebSocket from 'ws';
@@ -23,7 +29,6 @@ wss.on('listening', ()=>{
 	);
 });
 
-import {createHash} from 'crypto';
 let connectedWs: WebSocket[] = [];
 wss.on('connection', (ws: WebSocket) => {
 	ws.send('connected');
@@ -103,7 +108,7 @@ app.route('/register')
 	// API
 	.post(express.json(), async (req, res) => {
 		// Check if schema is valid
-		const userValid = UserSchema.validate({
+		const userValid = RegisterSchema.validate({
 			username: req?.query?.u,
 			password: req?.query?.p,
 			email: req?.query?.e
@@ -124,10 +129,13 @@ app.route('/register')
 			})
 		}
 
+		// Hash the password
+		const PasswordHash = await argon2.hash(userValid.value.password)
+
 		// Insert into database
 		db.get('users').insert({
 			username: userValid.value.username,
-			password: userValid.value.password,
+			password: PasswordHash,
 			email: userValid.value.email,
 			fingerprint: req?.body?.f0 || {},
 		});
@@ -146,6 +154,52 @@ app.route('/register')
 			message: `Successfully registered`,
 		});
 });
+
+// Log In from frontend
+app.post('/authenticate', async (req, res) => {
+	const userValid = LogInSchema.validate({
+		username: req?.query?.u,
+		password: req?.query?.p,
+	});
+
+	if (userValid?.error) {
+		return res.status(400).json({
+			success: false,
+			message: 'Invalid query',
+		})
+	}
+
+	// Get the user from database
+	const User = await db.get('users').findOne(userValid.value);
+	
+	// Check if user exists
+	if (!User) {
+		return res.status(403).json({
+			success: false,
+			message: 'User does not exist',
+		});
+	}
+
+	// Check if password is (not) valid
+	if (!(await argon2.verify(User?.password, userValid.value?.password))) {
+		return res.status(403).json({
+			success: false,
+			message: 'Invalid password',
+		});
+	}
+
+	// Create a hash to validate in the WebSocket later on
+	const Hash = createHash('sha512')
+		.update(`${RANDOM_BYTES}/${User.username}/${User._id}`)
+		.digest('hex');
+
+	return res.status(200).json({
+		success: true,
+		message: 'Successfully logged in',
+		Hash,
+	})
+});
+
 app.listen(PORT, () => {
 	console.info(
 		chalk.bgGreenBright(
