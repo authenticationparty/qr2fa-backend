@@ -14,6 +14,8 @@ import argon2 from 'argon2';
 // Crypto & createHash
 import {createHash, randomBytes} from 'crypto';
 // Random value to add to hash later on log in
+// This prevents users from having their account compromised in case of a cookie steal
+// Might fuck with Remember Me tho
 const RANDOM_BYTES = randomBytes(128);
 
 // WebSockets to reload whenever it registers/logins
@@ -102,7 +104,8 @@ app.route('/register')
 	.get((req, res) => {
 		res.render('fingerprinting.pug', {
 			query: req.query,
-			FingerprintJS
+			FingerprintJS,
+			type: 'Registering',
 		});
 	})
 	// API
@@ -156,11 +159,8 @@ app.route('/register')
 });
 
 // Log In from frontend
-app.post('/authenticate', async (req, res) => {
-	const userValid = LogInSchema.validate({
-		username: req?.query?.u,
-		password: req?.query?.p,
-	});
+app.post('/authenticate', express.json(), async (req, res) => {
+	const userValid = LogInSchema.validate(req.body || {});
 
 	if (userValid?.error) {
 		return res.status(400).json({
@@ -170,7 +170,9 @@ app.post('/authenticate', async (req, res) => {
 	}
 
 	// Get the user from database
-	const User = await db.get('users').findOne(userValid.value);
+	const User = await db.get('users').findOne({
+		username: userValid.value?.username,
+	});
 	
 	// Check if user exists
 	if (!User) {
@@ -198,6 +200,95 @@ app.post('/authenticate', async (req, res) => {
 		message: 'Successfully logged in',
 		Hash,
 	})
+});
+
+app.route('/acceptLogin')
+.get(async (req, res) => {
+	res.render('fingerprinting.pug', {
+		query: req.query,
+		FingerprintJS,
+		type: 'Logging in',
+	});
+})
+.post(express.json(), async (req, res) => {
+	const
+		Fingerprint = req.body?.f0,
+		Username = req.body?.username;
+
+	// Body check
+	if (!Fingerprint || !Username) {
+		return res.status(403).json({
+			success: false,
+			message: 'Invalid request',
+		});
+	}
+
+	// Get user
+	const User = await db.get('users').findOne({
+		username: Username,
+	})
+	// Check for existance
+	if (!User) {
+		return res.status(403).json({
+			success: false,
+			message: 'User does not exist',
+		})
+	}
+
+	// Fingerprint from Db
+	const FP = User?.fingerprint;
+	if (!FP) {
+		return res.status(403).json({
+			success: false,
+			message: 'Request a device reset',
+		})
+	}
+
+	// Check if Fingerprints match
+	/**
+	 * Meanings:
+	 * +: important
+	 * ~: might change
+	 * -: not important/probably undefined
+	 *TODO: Add a confidence system and let user access if scores high enough
+	 */
+	if (
+		// Vendor (+)
+		FP.vendor != Fingerprint.vendor ||
+		// Canvas B64 (~)
+		/* Disabled until confidence system is added
+			FP?.canvas?.value?.text+FP?.canvas?.value?.geometry
+			!= Fingerprint?.canvas?.value?.text+Fingerprint?.canvas?.value?.geometry ||
+			*/
+		// Platform (+, shouldn't change)
+		FP.platform != Fingerprint.platform ||
+		// Timezone (~)
+		FP.timezone != Fingerprint.timezone ||
+		// Screen resolution (+, it shouldn't change for phones)
+		FP.screenResolution != Fingerprint.screenResolution ||
+		// Font preferences (+, it shouldn't change for phones)
+		FP.fontPreferences != Fingerprint.fontPreferences ||
+		// Touch support (+, if this doesn't match it is definitely not the same phone)
+		FP.touchSupport != Fingerprint.touchSupport
+	) {
+		return res.status(403).json({
+			success: false,
+			message: `Device does not match`,
+		});
+	}
+
+	const Hash = createHash('sha512')
+		.update(`${RANDOM_BYTES}/${User.username}/${User._id}`)
+		.digest('hex');
+
+	connectedWs.filter((ws: any) => ws.x_hash == Hash);
+	if (connectedWs[0]) {
+		User.sessHash = Hash;
+		const SessId = createHash('sha512')
+			.update(JSON.stringify(User))
+			.digest('hex');
+		connectedWs[0].send(`.logged${SessId}`);
+	}
 });
 
 app.listen(PORT, () => {

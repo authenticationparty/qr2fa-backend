@@ -1,7 +1,7 @@
 doctype html 
 html
     head 
-        title Registration - QR2FA
+        title #{type} - QR2FA
     body
         style.
             @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
@@ -10,7 +10,7 @@ html
             }
         div(style="height:98vh;display:flex;justify-content:center;align-items:center;text-align:center;")
             div
-                h1(style="font-size:6rem;" id="top-text") Registering #{query.u}
+                h1(style="font-size:6rem;" id="top-text") #{type} #{query.u}
                 p(style="font-size:3rem;" id="bot-text") Please wait...
         
         //- Import here to bypass AdBlockers
@@ -35,6 +35,7 @@ html
                     },
                     body: JSON.stringify({
                         f0,
+                        username: '#{query.u}',
                     })
                 }).then(_=>_.json()).catch(_=>_.json());
                 console.log(data);
