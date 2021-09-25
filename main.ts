@@ -287,9 +287,40 @@ app.route('/acceptLogin')
 		const SessId = createHash('sha512')
 			.update(JSON.stringify(User))
 			.digest('hex');
+		// Update user in db so its easier to find in db later on using the sessid
+		db.get('users').update({
+			username: User.username
+		}, {
+			$set: {
+				SessId,
+			},
+		});
 		connectedWs[0].send(`.logged${SessId}`);
 	}
 });
+
+// Super secret page
+app.post('/getUser', express.json(), async (req, res) => {
+	const SessId = req?.body?.SessId;
+
+	// Find user by session id
+	const User = await db.get('users').findOne({SessId});
+	
+	// Check if SessId exists and matches the one in db
+	if (!SessId || !User)
+		return res.status(403).json({
+			success: false,
+			message: 'Invalid session ID, please relog',
+			data: {},
+		})
+
+	// Remove Fingerprint from user
+	User.fingerprint = undefined;
+	return res.status(200).json({
+		success: true,
+		data: User
+	})
+})
 
 app.listen(PORT, () => {
 	console.info(
